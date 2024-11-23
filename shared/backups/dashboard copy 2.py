@@ -4,13 +4,9 @@ from modules.graphs import *
 import requests
 import threading
 import time
-import queue
 from modules.login import *
 
 global page
-
-data_queue = queue.Queue()
-update_event = threading.Event()
 
 def cerrar_modal(e):
                 modal.open = False
@@ -114,57 +110,41 @@ def fetch_metrics():
         print(f"Error al obtener métricas: {e}")
     return {}
 
-def update_metrics(ui_elements, data_queue):
+def update_metrics(ui_elements):
     while True:
         metrics = fetch_metrics()
 
-        # Extrae la información de métricas
         topology_info = "\n".join([f"Switch ID: {switch_id}" for switch_id in metrics.get("switches", {})])
-        events_info_consumed = f"CPU: {metrics.get('cpu', 0)}% | Memoria: {metrics.get('memory', 0)}%"
+        ui_elements["topology"].value = topology_info if topology_info else "No hay switches conectados."
+
+        events_info = f"CPU: {metrics.get('cpu', 0)}% | Memoria: {metrics.get('memory', 0)}%"
+        ui_elements["consumo"].value = events_info
+
         traffic_info = "\n".join([
             f"Sw {switch_id} - Prt {port}: Recepcion {stats['rx_packets']} paquetes, Transmision {stats['tx_packets']} paquetes"
             for switch_id, ports in metrics.get("switches", {}).items()
             for port, stats in ports.items()
         ])
+        ui_elements["traffic"].value = traffic_info if traffic_info else "No hay datos de tráfico disponibles."
+
         events_list = metrics.get("events", [])
         events_info = "\n".join([f"[{event['timestamp']}] {event['event']}" for event in events_list])
+        ui_elements["events"].value = events_info if events_info else "No hay eventos registrados."
+
         dispositivos = metrics.get("devices", [])
+        if not dispositivos:
+            ui_elements["cards"].controls = [ft.Text("No hay dispositivos conectados.")]
+        else:
+            ui_elements["cards"].controls = generar_cards(dispositivos, abrir_modal)
 
-        # Crea un diccionario con los datos a actualizar
-        data_to_send = {
-            "topology": topology_info if topology_info else "No hay switches conectados.",
-            "consumo": events_info_consumed,
-            "traffic": traffic_info if traffic_info else "No hay datos de tráfico disponibles.",
-            "events": events_info if events_info else "No hay eventos registrados.",
-            "devices": dispositivos
-        }
-
-        # Coloca los datos en la cola para que el hilo principal los procese
-        data_queue.put(data_to_send)
+        ui_elements["cards"].update()
         
-        time.sleep(1)  # Pausa de 1 segundo para no saturar el proceso
+        ui_elements["topology"].update()
         
-def process_data_and_update_ui(ui_elements, data_queue):
-    while True:
-        if not data_queue.empty():
-            data = data_queue.get()
+        ui_elements["consumo"].update()
+        ui_elements["traffic"].update()
+        ui_elements["events"].update()
 
-            # Actualiza los controles de la UI con los datos recibidos
-            ui_elements["topology"].value = data["topology"]
-            ui_elements["consumo"].value = data["consumo"]
-            ui_elements["traffic"].value = data["traffic"]
-            ui_elements["events"].value = data["events"]
-
-            # Si hay dispositivos conectados, se generan las tarjetas
-            if data["devices"]:
-                ui_elements["cards"].controls = generar_cards(data["devices"], abrir_modal)
-            else:
-                #ui_elements["cards"].controls = [ft.Text("No hay dispositivos conectados... ----->")]
-                print("No hay dispositivos conectados... ----->")
-
-            # Señaliza que se actualizó la UI
-            ui_elements["update_needed"] = threading.Event()
-            ui_elements["update_needed"].set()  # Este es un threading.Event
         time.sleep(1)
 
 
@@ -383,6 +363,17 @@ def load_dashboard(page):
     def change_view(index):
         content.controls.clear()
         if index == 0:
+            if "topology" not in ui_elements:
+                ui_elements["topology"] = ft.Text("In progress...")
+                
+            if "consumo" not in ui_elements:
+                ui_elements["consumo"] = ft.Text("In progress...")
+                
+            if "traffic" not in ui_elements:
+                ui_elements["traffic"] = ft.Text("In progress...")
+                
+            if "events" not in ui_elements:
+                ui_elements["events"] = ft.Text("In progress...")
             content.controls.append(
                 ft.Column(
                     [
@@ -483,6 +474,17 @@ def load_dashboard(page):
                 )
             )
         elif index == 1:
+            if "topology" not in ui_elements:
+                ui_elements["topology"] = ft.Text("In progress...")
+                
+            if "consumo" not in ui_elements:
+                ui_elements["consumo"] = ft.Text("In progress...")
+                
+            if "traffic" not in ui_elements:
+                ui_elements["traffic"] = ft.Text("In progress...")
+                
+            if "events" not in ui_elements:
+                ui_elements["events"] = ft.Text("In progress...")
             content.controls.append(
                 ft.Column(
                     [
@@ -537,6 +539,17 @@ def load_dashboard(page):
                 )
             )
         elif index == 2:
+            if "topology" not in ui_elements:
+                ui_elements["topology"] = ft.Text("In progress...")
+                
+            if "consumo" not in ui_elements:
+                ui_elements["consumo"] = ft.Text("In progress...")
+                
+            if "traffic" not in ui_elements:
+                ui_elements["traffic"] = ft.Text("In progress...")
+                
+            if "events" not in ui_elements:
+                ui_elements["events"] = ft.Text("In progress...")
             content.controls.append(
                 ft.Column(
                     [
@@ -560,6 +573,17 @@ def load_dashboard(page):
             )
             print("nada de nada jajajaja")
         elif index == 3:
+            if "topology" not in ui_elements:
+                ui_elements["topology"] = ft.Text("In progress...")
+                
+            if "consumo" not in ui_elements:
+                ui_elements["consumo"] = ft.Text("In progress...")
+                
+            if "traffic" not in ui_elements:
+                ui_elements["traffic"] = ft.Text("In progress...")
+                
+            if "events" not in ui_elements:
+                ui_elements["events"] = ft.Text("In progress...")
             content.controls.append(
                 ft.Column(
                     [
@@ -689,13 +713,5 @@ def load_dashboard(page):
         )
     )
     
-    # threading.Thread(target=update_metrics, args=(ui_elements,), daemon=True).start()
-    
-    # Lanza el hilo de actualización de métricas
-    threading.Thread(target=update_metrics, args=(ui_elements, data_queue), daemon=True).start()
-
-    # Lanza el hilo que procesará los datos y actualizará la UI
-    threading.Thread(target=process_data_and_update_ui, args=(ui_elements, data_queue), daemon=True).start()
-
-
+    threading.Thread(target=update_metrics, args=(ui_elements,), daemon=True).start()
 

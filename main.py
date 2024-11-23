@@ -27,14 +27,14 @@ def main(page: ft.Page):
 
     page.padding = 0
     page.window.resizable = True
-    page.window_maximized = True
+    page.window.maximized = True
     page.vertical_alignment = "center"
     page.horizontal_alignment = "center"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.colors.GREY_300
     page.scroll = "adaptive"
-    #login_app = LoginApp()
-    #page.add(login_app)
+    # login_app = LoginApp()
+    # page.add(login_app)
     page.update()
 
     load_dashboard(page)

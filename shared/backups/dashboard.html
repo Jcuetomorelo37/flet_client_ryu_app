@@ -4,13 +4,9 @@ from modules.graphs import *
 import requests
 import threading
 import time
-import queue
 from modules.login import *
 
 global page
-
-data_queue = queue.Queue()
-update_event = threading.Event()
 
 def cerrar_modal(e):
                 modal.open = False
@@ -20,7 +16,11 @@ def abrir_modal(dispositivo):
                 def confirmar_click(e):
                     dispositivo["ancho_banda"] = ancho_banda_control.value
                     dispositivo["prioridad"] = prioridad_control.value
-                    modal.open = False
+                    nbw = dispositivo["ancho_banda"]
+                    np = dispositivo["prioridad"]
+                    print(f"Ancho de banda nuevo: {nbw}")
+                    print(f"Prioridad nueva: {np}")
+                    modal.open = False  # Cerrar el modal después de confirmar
                     page.update()
 
                 ancho_banda_control = ft.TextField(
@@ -30,6 +30,7 @@ def abrir_modal(dispositivo):
                     label="Prioridad", value=dispositivo["prioridad"]
                 )
 
+                global modal
                 modal = ft.AlertDialog(
                     title=ft.Text("Modificar dispositivo"),
                     content=ft.Container(
@@ -48,7 +49,9 @@ def abrir_modal(dispositivo):
                             content=ft.Row(
                                 [
                                     ft.TextButton("Cancelar", on_click=cerrar_modal),
-                                    ft.TextButton("Confirmar", on_click=confirmar_click),
+                                    ft.TextButton(
+                                        "Confirmar", on_click=confirmar_click
+                                    ),
                                 ],
                                 alignment=ft.MainAxisAlignment.CENTER,
                             ),
@@ -60,111 +63,85 @@ def abrir_modal(dispositivo):
                 page.dialog = modal
                 modal.open = True
                 page.update()
-
-def content_builder(ui_elements, abrir_modal):
-    # Validar si ui_elements["devices"] existe y es una lista
-    dispositivos = ui_elements.get("devices", [])
-    if not isinstance(dispositivos, list):
-        dispositivos = []  # Si no es una lista, asigna una vacía
-
-    return ft.Column(
-        [
-            ft.Container(
-                content=ft.AnimatedSwitcher(
-                    content=generar_cards(dispositivos, abrir_modal),
-                    transition=ft.AnimatedSwitcherTransition.SCALE,
-                    duration=300,
-                    switch_in_curve=ft.AnimationCurve.EASE_IN,
-                    switch_out_curve=ft.AnimationCurve.EASE_OUT,
+                
+# Función para generar las tarjetas por dispositivo
+def generar_cards(dispositivos, abrir_modal):
+    return [
+        ft.Card(
+            content=ft.GestureDetector(
+                on_tap=lambda e, d=d: abrir_modal(d),
+                content=ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.Text(f"Nombre: {d['nombre']}", style="titleMedium"),
+                            ft.Text(f"IP: {d['ip']}"),
+                            ft.Text(f"MAC: {d['mac']}"),
+                            ft.Text(f"Tiempo de conexión: {d['tiempo']}"),
+                            ft.Text(f"Ancho de banda usada: {d['ancho_banda']}"),
+                            ft.Text(f"Prioridad asignada: {d['prioridad']}"),
+                        ],
+                        spacing=5,
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                    padding=ft.padding.all(10),
+                    border_radius=10,
+                    bgcolor=ft.colors.SURFACE_VARIANT,
                 ),
-                alignment=ft.alignment.center,
-                width=float("inf"),
-                height=610,
-                margin=ft.margin.symmetric(horizontal=-20),
             ),
-        ],
-        expand=True,
-    )
-
-def generar_cards(ui_elements, abrir_modal):
-    # Si ui_elements es una lista de dispositivos, accede a ellos directamente
-    if not ui_elements:  # Si la lista está vacía
-        return ft.Text("No hay dispositivos conectados.", text_align=ft.TextAlign.CENTER)
-    return ft.Column(
-        [
-            ft.Container(
-                content=ft.Text(f"IP: {d['ip']}"),
-                padding=10,
-                border_radius=5,
-                bgcolor=ft.colors.SURFACE_VARIANT,
-            )
-            for d in ui_elements  # Aquí se asume que 'ui_elements' es una lista de dispositivos
-        ],
-        spacing=10,
-    )
-
+            elevation=5,
+            width=300,
+            height=150,
+        )
+        for d in dispositivos
+    ]
+    
+# Función para obtener métricas desde el servidor Ryu
 def fetch_metrics():
     try:
         response = requests.get("http://127.0.0.1:5000/metrics")
         if response.status_code == 200:
-            data = response.json()
-            print("Datos recibidos:", data)
-            return data
+            return response.json()
     except requests.RequestException as e:
         print(f"Error al obtener métricas: {e}")
     return {}
 
-def update_metrics(ui_elements, data_queue):
+# Función para actualizar las métricas en la aplicación Flet
+def update_metrics(ui_elements):
     while True:
         metrics = fetch_metrics()
 
-        # Extrae la información de métricas
+        # Actualizar datos de topología
         topology_info = "\n".join([f"Switch ID: {switch_id}" for switch_id in metrics.get("switches", {})])
-        events_info_consumed = f"CPU: {metrics.get('cpu', 0)}% | Memoria: {metrics.get('memory', 0)}%"
+        ui_elements["topology"].value = topology_info if topology_info else "No hay switches conectados."
+
+        # Actualizar consumo de recursos (CPU y memoria)
+        events_info = f"CPU: {metrics.get('cpu', 0)}% | Memoria: {metrics.get('memory', 0)}%"
+        ui_elements["consumo"].value = events_info
+
+        # Actualizar estadísticas de tráfico por puertos
         traffic_info = "\n".join([
             f"Sw {switch_id} - Prt {port}: Recepcion {stats['rx_packets']} paquetes, Transmision {stats['tx_packets']} paquetes"
             for switch_id, ports in metrics.get("switches", {}).items()
             for port, stats in ports.items()
         ])
+        ui_elements["traffic"].value = traffic_info if traffic_info else "No hay datos de tráfico disponibles."
+
+        # Actualizar eventos de conexión/desconexión
         events_list = metrics.get("events", [])
         events_info = "\n".join([f"[{event['timestamp']}] {event['event']}" for event in events_list])
+        ui_elements["events"].value = events_info if events_info else "No hay eventos registrados."
+        
+        # Actualizar dispositivos
         dispositivos = metrics.get("devices", [])
+        ui_elements["cards"].controls = generar_cards(dispositivos, abrir_modal)
+        ui_elements["cards"].update()
 
-        # Crea un diccionario con los datos a actualizar
-        data_to_send = {
-            "topology": topology_info if topology_info else "No hay switches conectados.",
-            "consumo": events_info_consumed,
-            "traffic": traffic_info if traffic_info else "No hay datos de tráfico disponibles.",
-            "events": events_info if events_info else "No hay eventos registrados.",
-            "devices": dispositivos
-        }
+        # Actualizar la interfaz
+        ui_elements["topology"].update()
+        ui_elements["consumo"].update()
+        ui_elements["traffic"].update()
+        ui_elements["events"].update()
 
-        # Coloca los datos en la cola para que el hilo principal los procese
-        data_queue.put(data_to_send)
-        
-        time.sleep(1)  # Pausa de 1 segundo para no saturar el proceso
-        
-def process_data_and_update_ui(ui_elements, data_queue):
-    while True:
-        if not data_queue.empty():
-            data = data_queue.get()
-
-            # Actualiza los controles de la UI con los datos recibidos
-            ui_elements["topology"].value = data["topology"]
-            ui_elements["consumo"].value = data["consumo"]
-            ui_elements["traffic"].value = data["traffic"]
-            ui_elements["events"].value = data["events"]
-
-            # Si hay dispositivos conectados, se generan las tarjetas
-            if data["devices"]:
-                ui_elements["cards"].controls = generar_cards(data["devices"], abrir_modal)
-            else:
-                #ui_elements["cards"].controls = [ft.Text("No hay dispositivos conectados... ----->")]
-                print("No hay dispositivos conectados... ----->")
-
-            # Señaliza que se actualizó la UI
-            ui_elements["update_needed"] = threading.Event()
-            ui_elements["update_needed"].set()  # Este es un threading.Event
         time.sleep(1)
 
 
@@ -291,6 +268,7 @@ def logout(page, e):
 
 
 def load_dashboard(page):
+    # page.theme_mode = ft.ThemeMode.SYSTEM
     page.bgcolor = ft.colors.BLACK26
     page.scroll = "adaptive"
     page.update()
@@ -344,7 +322,7 @@ def load_dashboard(page):
         page.update()
 
     def show_notification_details(notification):
-        global modal
+        global modal  # Asegura que `modal` sea accesible globalmente
         modal = ft.AlertDialog(
             title=ft.Text(notification["title"], size=20),
             content=ft.Container(
@@ -369,16 +347,13 @@ def load_dashboard(page):
         page.update()
     
     ui_elements = {
-    #   "cards": ft.Column([], scroll=ft.ScrollMode.ADAPTIVE),
-      "cards": ft.Column([]),
       "topology": ft.Text("Cargando topología..."),
       "consumo": ft.Text("Cargando consumos..."),
       "traffic": ft.Text("Cargando tráfico..."),
       "events": ft.Text("Cargando eventos..."),
+      "cards": ft.Column(),
     }
-    
-    page.controls.append(ui_elements["cards"])
-    page.update()
+
 
     def change_view(index):
         content.controls.clear()
@@ -444,10 +419,10 @@ def load_dashboard(page):
                                             )
                                         ]
                                     ),
-                                    padding=ft.padding.only(top=20, bottom=20, left=20, right=20),
+                                    padding=ft.padding.all(20),
                                     bgcolor=ft.colors.TRANSPARENT,
                                     border=ft.border.all(3, ft.colors.CYAN_900),
-                                    width=450
+                                    width=550
                                 ),
                                 # Sección 2: Datos de Carga
                                 ft.Container(
@@ -464,14 +439,14 @@ def load_dashboard(page):
                                                 padding=ft.padding.all(20),
                                                 bgcolor=ft.colors.SURFACE_VARIANT,
                                                 border_radius=ft.border_radius.all(10),
-                                                width=600
+                                                width=530
                                             ),
                                         ],
                                     ),
-                                    padding=ft.padding.only(top=20, bottom=20, left=20, right=20),
+                                    padding=ft.padding.all(20),
                                     bgcolor=ft.colors.TRANSPARENT,
                                     border=ft.border.all(3, ft.colors.CYAN_900),
-                                    width=650
+                                    width=550
                                 ),
                                 
                             ],
@@ -479,7 +454,6 @@ def load_dashboard(page):
                         ),
                     ],
                     height=708,
-                    scroll=ft.ScrollMode.ALWAYS,
                 )
             )
         elif index == 1:
@@ -537,6 +511,55 @@ def load_dashboard(page):
                 )
             )
         elif index == 2:
+            cards = [
+                ft.Card(
+                    content=ft.GestureDetector(
+                        on_tap=lambda e, d=d: abrir_modal(d),
+                        content=ft.Container(
+                            content=ft.Column(
+                                [
+                                    ft.Text(
+                                        f"Nombre: {d['nombre']}", style="titleMedium"
+                                    ),
+                                    ft.Text(f"IP: {d['ip']}"),
+                                    ft.Text(f"MAC: {d['mac']}"),
+                                    ft.Text(f"Tiempo de conexión: {d['tiempo']}"),
+                                    ft.Text(
+                                        f"Ancho de banda usada: {d['ancho_banda']}"
+                                    ),
+                                    ft.Text(f"Prioridad asignada: {d['prioridad']}"),
+                                ],
+                                spacing=5,
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            ),
+                            padding=ft.padding.all(10),
+                            border_radius=10,
+                            bgcolor=ft.colors.SURFACE_VARIANT,
+                        ),
+                    ),
+                    elevation=5,
+                    width=300,
+                    height=150,
+                )
+                for d in dispositivos
+            ]
+
+            contenedor_scrollable = ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Row(
+                            controls=ui_elements["cards"],
+                            wrap=True,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            spacing=20,
+                        )
+                    ],
+                    scroll=ft.ScrollMode.AUTO,
+                ),
+                height=320,  # Ajusta esta altura según tus necesidades
+                width=float("inf"),
+            )
+
             content.controls.append(
                 ft.Column(
                     [
@@ -553,12 +576,34 @@ def load_dashboard(page):
                             width=float("inf"),
                             border_radius=ft.border_radius.all(10),
                         ),
-                        content_builder(ui_elements, abrir_modal)
+                        ft.Container(
+                            content=ft.AnimatedSwitcher(
+                                content=ft.Column(
+                                    [
+                                        ft.Row(
+                                            controls=cards,
+                                            wrap=True,
+                                            alignment=ft.MainAxisAlignment.CENTER,
+                                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                            spacing=20,
+                                        )
+                                    ],
+                                    scroll=ft.ScrollMode.ADAPTIVE,
+                                ),
+                                transition=ft.AnimatedSwitcherTransition.SCALE,
+                                duration=100,
+                                switch_in_curve=ft.AnimationCurve.EASE_IN,
+                                switch_out_curve=ft.AnimationCurve.EASE_OUT,
+                            ),
+                            alignment=ft.alignment.center,
+                            width=float("inf"),
+                            height=610,
+                            margin=ft.margin.symmetric(horizontal=-20),
+                        ),
                     ],
                     expand=True,
                 )
             )
-            print("nada de nada jajajaja")
         elif index == 3:
             content.controls.append(
                 ft.Column(
@@ -689,13 +734,22 @@ def load_dashboard(page):
         )
     )
     
-    # threading.Thread(target=update_metrics, args=(ui_elements,), daemon=True).start()
-    
-    # Lanza el hilo de actualización de métricas
-    threading.Thread(target=update_metrics, args=(ui_elements, data_queue), daemon=True).start()
-
-    # Lanza el hilo que procesará los datos y actualizará la UI
-    threading.Thread(target=process_data_and_update_ui, args=(ui_elements, data_queue), daemon=True).start()
+    threading.Thread(target=update_metrics, args=(ui_elements,), daemon=True).start()
 
 
 
+
+
+
+
+"devices":
+{
+"1a:49:aa:8f:f9:ff":{"ip":"10.0.0.7","port":4,"switch":1},
+"2e:02:d3:65:69:42":{"ip":"10.0.0.8","port":3,"switch":5},
+"36:ed:3d:5b:c0:80":{"ip":"10.0.0.5","port":3,"switch":4},
+"52:6a:e2:3c:0d:7a":{"ip":"10.0.0.3","port":3,"switch":4},
+"66:fc:2a:c2:e3:2d":{"ip":"10.0.0.6","port":4,"switch":5},
+"8a:81:75:97:61:e7":{"ip":"10.0.0.9","port":3,"switch":1},
+"ba:8c:eb:2e:53:09":{"ip":"10.0.0.10","port":4,"switch":1},
+"da:45:03:74:6d:2a":{"ip":"10.0.0.4","port":3,"switch":4}
+}
