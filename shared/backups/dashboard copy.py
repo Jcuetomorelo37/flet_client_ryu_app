@@ -8,6 +8,40 @@ from modules.login import *
 
 global page
 
+def content_builder(ui_elements, abrir_modal, current_view):
+    # Validar si ui_elements["devices"] existe y es una lista
+    dispositivos = ui_elements.get("devices", [])
+    if not isinstance(dispositivos, list):
+        dispositivos = []  # Si no es una lista, asigna una vacía
+
+    # Generar el contenido de las tarjetas (un único control `Column`)
+    tarjetas = ft.Column(
+        generar_cards(dispositivos, abrir_modal), 
+        spacing=10,  # Espaciado entre tarjetas
+        expand=True
+    )
+    if current_view == "sectionDevices":
+        return ft.Column(
+            [
+                ft.Container(
+                    content=ft.AnimatedSwitcher(
+                        content=tarjetas,  # Pasar el `Column` como único control
+                        transition=ft.AnimatedSwitcherTransition.SCALE,
+                        duration=300,
+                        switch_in_curve=ft.AnimationCurve.EASE_IN,
+                        switch_out_curve=ft.AnimationCurve.EASE_OUT,
+                    ),
+                    alignment=ft.alignment.center,
+                    width=float("inf"),
+                    height=610,
+                    margin=ft.margin.symmetric(horizontal=-20),
+                ),
+            ],
+            expand=True,
+        )
+    else:
+        print("vista distinta al objetivo...")
+        
 def cerrar_modal(e):
                 modal.open = False
                 page.update()

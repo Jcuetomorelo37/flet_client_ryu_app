@@ -7,108 +7,117 @@ import time
 import queue
 from modules.login import *
 
-global page
+page: ft.Page
 
 data_queue = queue.Queue()
 update_event = threading.Event()
 
-def cerrar_modal(e):
-                modal.open = False
-                page.update()
-                
-def abrir_modal(dispositivo):
-                def confirmar_click(e):
-                    dispositivo["ancho_banda"] = ancho_banda_control.value
-                    dispositivo["prioridad"] = prioridad_control.value
-                    modal.open = False
-                    page.update()
 
-                ancho_banda_control = ft.TextField(
-                    label="Ancho de banda", value=dispositivo["ancho_banda"]
+def generar_cards(ui_elements,page):
+        if not ui_elements:
+            return [
+                ft.Text(
+                   "No hay dispositivos conectados.",
+                    text_align=ft.TextAlign.CENTER,
+                    style=ft.TextStyle(size=16, color=ft.colors.ERROR),
                 )
-                prioridad_control = ft.TextField(
-                    label="Prioridad", value=dispositivo["prioridad"]
-                )
-
-                modal = ft.AlertDialog(
-                    title=ft.Text("Modificar dispositivo"),
-                    content=ft.Container(
-                        content=ft.Column(
-                            [
-                                ft.Text(f"Dispositivo: {dispositivo['nombre']}"),
-                                ancho_banda_control,
-                                prioridad_control,
+            ]
+        
+        return [
+            ft.Container(
+                content=ft.Column(  # Mantengo el Column para que las cards estén apiladas verticalmente
+                    controls=[
+                        ft.Row(
+                            controls=[
+                                ft.Column(  # Columna para los textos
+                                    controls=[
+                                        ft.Text(f"Direccion IP: {d.get('ip', 'Desconocida')}", expand=True),
+                                        ft.Text(f"Direccion MAC: {d.get('mac', 'Desconocida')}", expand=True),
+                                        ft.Text(f"Switch conectado: {d.get('switch', 'No conectado')}", expand=True),
+                                        ft.Text(f"Puerto de conexion: {d.get('port', 'No conectado')}", expand=True),
+                                        ft.Text(f"Ancho de banda: {d.get('band', 'No medidio')}", expand=True),
+                                        ft.Text(f"Prioridad asignada: {d.get('priority', 'No asignada')}", expand=True),
+                                    ],
+                                    spacing=5,  # Espacio entre las líneas de texto
+                                    alignment=ft.alignment.top_left,  # Alineación superior a la izquierda para los textos
+                                ),
+                                ft.Icon(ft.icons.DEVICES),  # Icono a la derecha
                             ],
-                            spacing=10,
-                        ),
-                        height=200,
-                    ),
-                    actions=[
-                        ft.Container(
-                            content=ft.Row(
-                                [
-                                    ft.TextButton("Cancelar", on_click=cerrar_modal),
-                                    ft.TextButton("Confirmar", on_click=confirmar_click),
-                                ],
-                                alignment=ft.MainAxisAlignment.CENTER,
-                            ),
-                            alignment=ft.alignment.center,
+                            spacing=50,  # Espacio entre los textos y el icono
+                            alignment=ft.alignment.center,  # Centrado horizontal en la fila
+                            scroll=ft.ScrollMode.AUTO
                         ),
                     ],
-                )
-
-                page.dialog = modal
-                modal.open = True
-                page.update()
-
-def content_builder(ui_elements, abrir_modal):
-    # Validar si ui_elements["devices"] existe y es una lista
-    dispositivos = ui_elements.get("devices", [])
-    if not isinstance(dispositivos, list):
-        dispositivos = []  # Si no es una lista, asigna una vacía
-
-    return ft.Column(
-        [
-            ft.Container(
-                content=ft.AnimatedSwitcher(
-                    content=generar_cards(dispositivos, abrir_modal),
-                    transition=ft.AnimatedSwitcherTransition.SCALE,
-                    duration=300,
-                    switch_in_curve=ft.AnimationCurve.EASE_IN,
-                    switch_out_curve=ft.AnimationCurve.EASE_OUT,
+                    spacing=10,
                 ),
-                alignment=ft.alignment.center,
-                width=float("inf"),
-                height=610,
-                margin=ft.margin.symmetric(horizontal=-20),
-            ),
-        ],
-        expand=True,
-    )
-
-def generar_cards(ui_elements, abrir_modal):
-    # Si ui_elements es una lista de dispositivos, accede a ellos directamente
-    if not ui_elements:  # Si la lista está vacía
-        return ft.Text("No hay dispositivos conectados.", text_align=ft.TextAlign.CENTER)
-    return ft.Column(
-        [
-            ft.Container(
-                content=ft.Text(f"IP: {d['ip']}"),
                 padding=10,
+                width=350,
                 border_radius=5,
                 bgcolor=ft.colors.SURFACE_VARIANT,
+                on_click=lambda e, dispositivo=d: abrir_modal(dispositivo,page),
             )
-            for d in ui_elements  # Aquí se asume que 'ui_elements' es una lista de dispositivos
-        ],
-        spacing=10,
-    )
+            for d in ui_elements  # Iterar sobre la lista de dispositivos
+        ]
+
+def abrir_modal(dispositivo, page):
+        ancho_banda_control = ft.TextField(
+            label="Ancho de banda", value=dispositivo.get("band", "")
+        )
+        prioridad_control = ft.TextField(
+            label="Prioridad", value=dispositivo.get("priority", "")
+        )
+    
+        modal = ft.AlertDialog(
+            title=ft.Text("Modificar dispositivo"),
+            content=ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Text(f"Dispositivo: {dispositivo.get('ip', 'N/A')}"),
+                        ancho_banda_control,
+                        prioridad_control,
+                    ],
+                    spacing=10,
+                ),
+                height=200,
+            ),
+            actions=[
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.TextButton("Cancelar", on_click=lambda e: cerrar_modal(page)),
+                            ft.TextButton(
+                                "Confirmar",
+                                on_click=lambda e: confirmar_click(
+                                dispositivo, ancho_banda_control, prioridad_control, page
+                                ),
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                    ),
+                    alignment=ft.alignment.center,
+                ),
+            ],
+        )
+
+        page.dialog = modal  # Asignar el modal a la página
+        modal.open = True
+        page.update()  # Se actualiza solo cuando se asigna el modal
+
+def cerrar_modal(page):
+    page.dialog.open = False
+    page.update()
+
+def confirmar_click(dispositivo, ancho_banda_control, prioridad_control, page):
+    dispositivo["band"] = ancho_banda_control.value
+    dispositivo["priority"] = prioridad_control.value
+    cerrar_modal(page)
 
 def fetch_metrics():
     try:
         response = requests.get("http://127.0.0.1:5000/metrics")
         if response.status_code == 200:
             data = response.json()
-            print("Datos recibidos:", data)
+            #print("Datos recibidos:", data)
             return data
     except requests.RequestException as e:
         print(f"Error al obtener métricas: {e}")
@@ -129,6 +138,7 @@ def update_metrics(ui_elements, data_queue):
         events_list = metrics.get("events", [])
         events_info = "\n".join([f"[{event['timestamp']}] {event['event']}" for event in events_list])
         dispositivos = metrics.get("devices", [])
+        notificaciones = metrics.get("notifications", [])
 
         # Crea un diccionario con los datos a actualizar
         data_to_send = {
@@ -136,35 +146,48 @@ def update_metrics(ui_elements, data_queue):
             "consumo": events_info_consumed,
             "traffic": traffic_info if traffic_info else "No hay datos de tráfico disponibles.",
             "events": events_info if events_info else "No hay eventos registrados.",
-            "devices": dispositivos
+            "devices": dispositivos,
+            "notifications": notificaciones
         }
 
-        # Coloca los datos en la cola para que el hilo principal los procese
         data_queue.put(data_to_send)
         
-        time.sleep(1)  # Pausa de 1 segundo para no saturar el proceso
-        
-def process_data_and_update_ui(ui_elements, data_queue):
+        time.sleep(1)
+
+def process_data_and_update_ui(ui_elements, data_queue, page):
     while True:
         if not data_queue.empty():
             data = data_queue.get()
 
-            # Actualiza los controles de la UI con los datos recibidos
             ui_elements["topology"].value = data["topology"]
             ui_elements["consumo"].value = data["consumo"]
             ui_elements["traffic"].value = data["traffic"]
             ui_elements["events"].value = data["events"]
-
-            # Si hay dispositivos conectados, se generan las tarjetas
-            if data["devices"]:
-                ui_elements["cards"].controls = generar_cards(data["devices"], abrir_modal)
+            
+            if data["notifications"]:
+                ui_elements["notifications"] = [
+                    {
+                        "timestamp": notif.get("timestamp", "N/A"),
+                        "title": notif.get("title", "Sin título"),
+                        "subtitle": notif.get("subtitle", ""),
+                        "description": notif.get("description", ""),
+                        "icon": ft.icons.NOTIFICATIONS,
+                        "type": "success",
+                    }
+                    for notif in data["notifications"]
+                ]
             else:
-                #ui_elements["cards"].controls = [ft.Text("No hay dispositivos conectados... ----->")]
-                print("No hay dispositivos conectados... ----->")
+                print("No hay notificaciones... ----->")
+                ui_elements["notifications"] = []
 
-            # Señaliza que se actualizó la UI
+            if data["devices"]:
+                ui_elements["cards"].controls = generar_cards(data["devices"],page)
+            else:
+                print("No hay dispositivos conectados... ----->")
+                ui_elements["cards"].controls = generar_cards(data["devices"],page)
+
             ui_elements["update_needed"] = threading.Event()
-            ui_elements["update_needed"].set()  # Este es un threading.Event
+            ui_elements["update_needed"].set()
         time.sleep(1)
 
 
@@ -313,29 +336,11 @@ def load_dashboard(page):
             "subtitle": "Hace 2 horas",
             "type": "actualizacion",
             "descripcion": "Se ha lanzado una nueva actualización del sistema. Por favor, revisa las notas de la versión para más detalles.",
-        },
-        {
-            "icon": ft.icons.WARNING,
-            "title": "Alerta de seguridad",
-            "subtitle": "Hace 1 día",
-            "type": "seguridad",
-            "descripcion": "Se detectó un posible intento de acceso no autorizado. Se recomienda revisar los logs de seguridad.",
-        },
-        {
-            "icon": ft.icons.INFO,
-            "title": "Informe semanal listo",
-            "subtitle": "Hace 3 días",
-            "type": "informe",
-            "descripcion": "El informe de rendimiento semanal está listo para su revisión. Incluye detalles sobre el tráfico de la red y rendimiento de los flujos.",
-        },
-        {
-            "icon": ft.icons.ERROR,
-            "title": "Fallo en la instalación de un flujo",
-            "subtitle": "Hace 30 minutos",
-            "type": "error_flujo",
-            "descripcion": "Un error ocurrió al intentar instalar un flujo en el switch SW1. Verifique la configuración y vuelva a intentarlo.",
-        },
+        }
     ]
+
+
+    
 
     def close_modal_window(e):
         global modal
@@ -351,17 +356,17 @@ def load_dashboard(page):
                 content=ft.Column(
                     [
                         ft.Text(f"{notification['subtitle']}", size=16),
-                        ft.Text(f"{notification['descripcion']}", size=14),
+                        ft.Text(f"{notification['description']}", size=14),
                     ]
                 ),
-                width=400,  # Cambia el ancho del modal
-                height=300,  # Cambia el alto del modal
-                padding=ft.padding.all(20),  # Añade padding si es necesario
+                width=400,
+                height=300,
+                padding=ft.padding.all(20),
             ),
             actions=[
                 ft.TextButton(
                     "Cerrar", on_click=close_modal_window
-                )  # Vincula la función de cierre
+                )
             ],
         )
         page.dialog = modal
@@ -375,14 +380,16 @@ def load_dashboard(page):
       "consumo": ft.Text("Cargando consumos..."),
       "traffic": ft.Text("Cargando tráfico..."),
       "events": ft.Text("Cargando eventos..."),
+      "notifications": [],
     }
     
-    page.controls.append(ui_elements["cards"])
+    
     page.update()
 
     def change_view(index):
         content.controls.clear()
         if index == 0:
+            view = "monitoring"
             content.controls.append(
                 ft.Column(
                     [
@@ -483,6 +490,7 @@ def load_dashboard(page):
                 )
             )
         elif index == 1:
+            view = "statistics"
             content.controls.append(
                 ft.Column(
                     [
@@ -537,28 +545,55 @@ def load_dashboard(page):
                 )
             )
         elif index == 2:
-            content.controls.append(
-                ft.Column(
-                    [
-                        ft.Container(
-                            content=ft.Text(
-                                "Dispositivos Conectados",
-                                theme_style=ft.TextThemeStyle.TITLE_LARGE,
-                                text_align=ft.TextAlign.CENTER,
-                            ),
-                            alignment=ft.alignment.center,
-                            padding=ft.padding.only(top=10, bottom=10),
-                            margin=ft.margin.only(right=30, top=20, bottom=20),
-                            bgcolor=ft.colors.SURFACE_VARIANT,
-                            width=float("inf"),
-                            border_radius=ft.border_radius.all(10),
+            current_view = "sectionDevices"
+            viewsc = "sectionDevices"
+            # cards = [
+            #     ft.Container(
+            #         content=ft.Column(
+            #             controls=[
+            #                 ft.Text(f"IP: {d['ip']}"),
+            #                 ft.Text(f"MAC: {d['mac']}"),
+            #                 # Otros controles que quieras mostrar...
+            #             ],
+            #         ),
+            #         padding=10,
+            #         bgcolor=ft.colors.SURFACE_VARIANT,
+            #         border_radius=ft.border_radius.all(5),
+            #         on_click=lambda e, dispositivo=d: abrir_modal(dispositivo, page),  # Llama a abrir_modal con el dispositivo
+            #     )
+            #     for d in ui_elements["cards"]  # Recorre cada dispositivo
+            # ]
+            section_devices_content = ft.Column(
+                [
+                    ft.Container(
+                        content=ft.Text(
+                            "Dispositivos Conectados",
+                            theme_style=ft.TextThemeStyle.TITLE_LARGE,
+                            text_align=ft.TextAlign.CENTER,
                         ),
-                        content_builder(ui_elements, abrir_modal)
-                    ],
-                    expand=True,
-                )
+                        alignment=ft.alignment.center,
+                        padding=ft.padding.only(top=10, bottom=10),
+                        margin=ft.margin.only(right=30, top=20, bottom=20),
+                        bgcolor=ft.colors.SURFACE_VARIANT,
+                        width=float("inf"),
+                        border_radius=ft.border_radius.all(10),
+                    ),
+                    ft.Container(
+                        content=ui_elements["cards"],
+                        width=float("inf"),
+                        height=610,
+                        bgcolor=ft.colors.TRANSPARENT,
+                        padding=ft.padding.all(10),
+                        border_radius=ft.border_radius.all(10),
+                        on_click=lambda e, d=ui_elements["cards"]: abrir_modal(d,page),
+                    ),
+                ],
+                expand=True,
             )
-            print("nada de nada jajajaja")
+            content.controls.clear()
+            content.controls.append(section_devices_content)
+
+
         elif index == 3:
             content.controls.append(
                 ft.Column(
@@ -583,32 +618,33 @@ def load_dashboard(page):
                                         content=ft.Card(
                                             content=ft.ListTile(
                                                 leading=ft.Icon(
-                                                    notification["icon"],
+                                                    notif["icon"],
                                                     color=ft.colors.WHITE,
                                                     size=20,
                                                 ),
                                                 title=ft.Text(
-                                                    notification["title"],
+                                                    notif["title"],
                                                     color=ft.colors.WHITE,
                                                     size=20,
                                                 ),
                                                 subtitle=ft.Text(
-                                                    notification["subtitle"],
+                                                    notif["subtitle"],
                                                     color=ft.colors.WHITE,
                                                     size=20,
                                                 ),
-                                                on_click=lambda e, n=notification: show_notification_details(
+                                                on_click=lambda e, n=notif: show_notification_details(
                                                     n
                                                 ),
                                             ),
-                                            color=notification_colors[
-                                                notification["type"]
-                                            ],
+                                            color=ft.colors.GREEN,
+                                            # color=notification_colors[
+                                            #     notification["type"]
+                                            # ],
                                         ),
                                         width=500,
                                         margin=ft.margin.only(left=100, right=100),
                                     )
-                                    for notification in notifications
+                                    for notif in ui_elements["notifications"]
                                 ],
                                 expand=1,
                             ),
@@ -688,14 +724,10 @@ def load_dashboard(page):
             expand=True,
         )
     )
-    
-    # threading.Thread(target=update_metrics, args=(ui_elements,), daemon=True).start()
-    
-    # Lanza el hilo de actualización de métricas
+        
     threading.Thread(target=update_metrics, args=(ui_elements, data_queue), daemon=True).start()
 
-    # Lanza el hilo que procesará los datos y actualizará la UI
-    threading.Thread(target=process_data_and_update_ui, args=(ui_elements, data_queue), daemon=True).start()
+    threading.Thread(target=process_data_and_update_ui, args=(ui_elements, data_queue, page), daemon=True).start()
 
 
 
