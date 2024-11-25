@@ -25,38 +25,41 @@ def generar_cards(ui_elements,page):
         
         return [
             ft.Container(
-                content=ft.Column(  # Mantengo el Column para que las cards estén apiladas verticalmente
+                content=ft.Row(
                     controls=[
                         ft.Row(
                             controls=[
-                                ft.Column(  # Columna para los textos
+                                ft.Column(
                                     controls=[
                                         ft.Text(f"Direccion IP: {d.get('ip', 'Desconocida')}", expand=True),
                                         ft.Text(f"Direccion MAC: {d.get('mac', 'Desconocida')}", expand=True),
                                         ft.Text(f"Switch conectado: {d.get('switch', 'No conectado')}", expand=True),
                                         ft.Text(f"Puerto de conexion: {d.get('port', 'No conectado')}", expand=True),
-                                        ft.Text(f"Ancho de banda: {d.get('band', 'No medidio')}", expand=True),
+                                        ft.Text(f"Ancho de banda: {d.get('band', 'No medidio')} Mbps", expand=True),
                                         ft.Text(f"Prioridad asignada: {d.get('priority', 'No asignada')}", expand=True),
                                     ],
-                                    spacing=5,  # Espacio entre las líneas de texto
-                                    alignment=ft.alignment.top_left,  # Alineación superior a la izquierda para los textos
+                                    spacing=5,
+                                    alignment=ft.alignment.top_left,
+                                    expand=True
                                 ),
-                                ft.Icon(ft.icons.DEVICES),  # Icono a la derecha
+                                ft.Icon(ft.icons.DEVICES_OTHER,size=30),
                             ],
-                            spacing=50,  # Espacio entre los textos y el icono
-                            alignment=ft.alignment.center,  # Centrado horizontal en la fila
-                            scroll=ft.ScrollMode.AUTO
+                            spacing=80,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            expand=True
+                            
                         ),
                     ],
-                    spacing=10,
+                    spacing=10, alignment=ft.MainAxisAlignment.CENTER
                 ),
-                padding=10,
-                width=350,
+                padding=padding.only(left=30,top=30,right=30,bottom=30),
+                margin=margin.only(left=300,top=3,right=300,bottom=3),
+                width=400,
                 border_radius=5,
                 bgcolor=ft.colors.SURFACE_VARIANT,
                 on_click=lambda e, dispositivo=d: abrir_modal(dispositivo,page),
             )
-            for d in ui_elements  # Iterar sobre la lista de dispositivos
+            for d in ui_elements
         ]
 
 def abrir_modal(dispositivo, page):
@@ -68,7 +71,7 @@ def abrir_modal(dispositivo, page):
         )
     
         modal = ft.AlertDialog(
-            title=ft.Text("Modificar dispositivo"),
+            title=ft.Text("Detalles del dispositivo"),
             content=ft.Container(
                 content=ft.Column(
                     [
@@ -329,19 +332,6 @@ def load_dashboard(page):
         "flujo_correcto": ft.colors.GREEN,
     }
 
-    notifications = [
-        {
-            "icon": ft.icons.NOTIFICATIONS,
-            "title": "Nueva actualización disponible",
-            "subtitle": "Hace 2 horas",
-            "type": "actualizacion",
-            "descripcion": "Se ha lanzado una nueva actualización del sistema. Por favor, revisa las notas de la versión para más detalles.",
-        }
-    ]
-
-
-    
-
     def close_modal_window(e):
         global modal
         modal.open = False
@@ -374,8 +364,7 @@ def load_dashboard(page):
         page.update()
     
     ui_elements = {
-    #   "cards": ft.Column([], scroll=ft.ScrollMode.ADAPTIVE),
-      "cards": ft.Column([]),
+      "cards": ft.Column([], scroll=ft.ScrollMode.AUTO),
       "topology": ft.Text("Cargando topología..."),
       "consumo": ft.Text("Cargando consumos..."),
       "traffic": ft.Text("Cargando tráfico..."),
@@ -449,12 +438,14 @@ def load_dashboard(page):
                                                 border_radius=ft.border_radius.all(10),
                                                 width=530
                                             )
-                                        ]
+                                        ],
+                                        scroll=ft.ScrollMode.AUTO
                                     ),
-                                    padding=ft.padding.only(top=20, bottom=20, left=20, right=20),
+                                    padding=ft.padding.only(top=30, bottom=20, left=20, right=20),
+                                    margin=ft.margin.only(top=10, bottom=20, left=20, right=20),
                                     bgcolor=ft.colors.TRANSPARENT,
                                     border=ft.border.all(3, ft.colors.CYAN_900),
-                                    width=450
+                                    width=450, height=610
                                 ),
                                 # Sección 2: Datos de Carga
                                 ft.Container(
@@ -474,19 +465,20 @@ def load_dashboard(page):
                                                 width=600
                                             ),
                                         ],
+                                        scroll=ft.ScrollMode.AUTO
                                     ),
                                     padding=ft.padding.only(top=20, bottom=20, left=20, right=20),
+                                    margin=ft.margin.only(top=10, bottom=20, left=20, right=20),
                                     bgcolor=ft.colors.TRANSPARENT,
                                     border=ft.border.all(3, ft.colors.CYAN_900),
-                                    width=650
+                                    width=650, height=610
                                 ),
-                                
                             ],
                             alignment=ft.MainAxisAlignment.CENTER,
+                            scroll=ft.ScrollMode.HIDDEN
                         ),
                     ],
-                    height=708,
-                    scroll=ft.ScrollMode.ALWAYS,
+                    height=708, #scroll=ft.ScrollMode.AUTO
                 )
             )
         elif index == 1:
@@ -545,24 +537,6 @@ def load_dashboard(page):
                 )
             )
         elif index == 2:
-            current_view = "sectionDevices"
-            viewsc = "sectionDevices"
-            # cards = [
-            #     ft.Container(
-            #         content=ft.Column(
-            #             controls=[
-            #                 ft.Text(f"IP: {d['ip']}"),
-            #                 ft.Text(f"MAC: {d['mac']}"),
-            #                 # Otros controles que quieras mostrar...
-            #             ],
-            #         ),
-            #         padding=10,
-            #         bgcolor=ft.colors.SURFACE_VARIANT,
-            #         border_radius=ft.border_radius.all(5),
-            #         on_click=lambda e, dispositivo=d: abrir_modal(dispositivo, page),  # Llama a abrir_modal con el dispositivo
-            #     )
-            #     for d in ui_elements["cards"]  # Recorre cada dispositivo
-            # ]
             section_devices_content = ft.Column(
                 [
                     ft.Container(
@@ -580,24 +554,23 @@ def load_dashboard(page):
                     ),
                     ft.Container(
                         content=ui_elements["cards"],
-                        width=float("inf"),
+                        # width=450,
+                        width=1200,
                         height=610,
                         bgcolor=ft.colors.TRANSPARENT,
                         padding=ft.padding.all(10),
                         border_radius=ft.border_radius.all(10),
-                        on_click=lambda e, d=ui_elements["cards"]: abrir_modal(d,page),
-                    ),
+                    ),                    
                 ],
                 expand=True,
             )
             content.controls.clear()
             content.controls.append(section_devices_content)
-
-
         elif index == 3:
             content.controls.append(
                 ft.Column(
                     [
+                        # Encabezado de la sección
                         ft.Container(
                             content=ft.Text(
                                 "Notificaciones",
@@ -606,47 +579,53 @@ def load_dashboard(page):
                             ),
                             alignment=ft.alignment.center,
                             padding=ft.padding.only(top=10, bottom=10),
-                            margin=ft.margin.only(right=30, top=20, bottom=20),
+                           margin=ft.margin.only(right=30, top=20, bottom=20),
                             bgcolor=ft.colors.SURFACE_VARIANT,
-                            width=float("inf"),
+                            width=float("inf"),  # Tamaño fijo en lugar de float("inf")
                             border_radius=ft.border_radius.all(10),
                         ),
+                        # Verificar si hay notificaciones
                         ft.Container(
-                            content=ft.ListView(
-                                controls=[
-                                    ft.Container(
-                                        content=ft.Card(
-                                            content=ft.ListTile(
-                                                leading=ft.Icon(
-                                                    notif["icon"],
-                                                    color=ft.colors.WHITE,
-                                                    size=20,
+                            content=(
+                                ft.Text(
+                                    "No hay notificaciones nuevas...",
+                                    text_align=ft.TextAlign.CENTER,
+                                    style=ft.TextStyle(size=16, color=ft.colors.ERROR),
+                                )
+                                if not ui_elements or not ui_elements.get("notifications")
+                                else ft.ListView(
+                                    controls=[
+                                        ft.Container(
+                                            content=ft.Card(
+                                                content=ft.ListTile(
+                                                    leading=ft.Icon(
+                                                        notif["icon"],
+                                                        color=ft.colors.WHITE,
+                                                        size=20,
+                                                    ),
+                                                    title=ft.Text(
+                                                        notif["title"],
+                                                        color=ft.colors.WHITE,
+                                                       size=20,
+                                                    ),
+                                                    subtitle=ft.Text(
+                                                        notif["subtitle"],
+                                                        color=ft.colors.WHITE,
+                                                        size=14,
+                                                    ),
+                                                    on_click=lambda e, n=notif: show_notification_details(
+                                                        n
+                                                    ),
                                                 ),
-                                                title=ft.Text(
-                                                    notif["title"],
-                                                    color=ft.colors.WHITE,
-                                                    size=20,
-                                                ),
-                                                subtitle=ft.Text(
-                                                    notif["subtitle"],
-                                                    color=ft.colors.WHITE,
-                                                    size=20,
-                                                ),
-                                                on_click=lambda e, n=notif: show_notification_details(
-                                                    n
-                                                ),
+                                                color=ft.colors.GREEN,
                                             ),
-                                            color=ft.colors.GREEN,
-                                            # color=notification_colors[
-                                            #     notification["type"]
-                                            # ],
-                                        ),
-                                        width=500,
-                                        margin=ft.margin.only(left=100, right=100),
-                                    )
-                                    for notif in ui_elements["notifications"]
-                                ],
-                                expand=1,
+                                            width=500,
+                                            margin=ft.margin.only(left=70, right=70),
+                                        )
+                                        for notif in ui_elements["notifications"]
+                                    ],
+                                    expand=1,
+                                )
                             ),
                             height=610,
                         ),
